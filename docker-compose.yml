@@ -1,0 +1,51 @@
+version: '3'
+services:
+  carapi:
+    image: carapi:v1.0.0-39-8fb95528
+    restart: on-failure
+    depends_on:
+      - postgresql
+      - vault
+    environment:
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_TOKEN=ab0bd6f5-c3f5-44b2-b677-acd23cdde73c
+      - PSQL_USER=root
+      - PSQL_PASSWORD=password
+      - PSQL_HOST=postgresql
+      - PSQL_PORT=5432
+      - STACK_NAME=f3-carapi
+      - DATABASE-HOST=postgresql
+      - DATABASE-SSL-MODE=disable
+      - DATABASE-USERNAME=carapi_user
+      - DATABASE-PASSWORD=testcar
+    ports:
+      - 8080:8080
+  postgresql:
+    image: postgres:9.5-alpine
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "postgres", "-U", "root" ]
+      timeout: 45s
+      interval: 10s
+      retries: 10
+    restart: always
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./scripts/db:/docker-entrypoint-initdb.d/
+  vault:
+    image: vault:1.6.3
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=ab0bd6f5-c3f5-44b2-b677-acd23cdde73c
+  goapp:
+    build: .
+    container_name: go_api
+    restart: on-failure
+    depends_on:
+      - carapi
+    ports:
+      - 5050:5050
+    environment:
+      - ACC_API_HOST=http://carapi:8080
+    volumes:
+      - ./app:/app/
